@@ -1,9 +1,12 @@
 /* User Includes */
 #include <stdlib.h>
 #include <stdio.h>
+#include <errno.h>
+
 #include <kernel/dpl/TimerP.h>
 #include <drivers/pinmux.h>
 #include <kernel/dpl/DebugP.h>
+
 #include "ti_drivers_config.h"
 #include "ti_board_config.h"
 #include "ti_drivers_open_close.h"
@@ -86,7 +89,7 @@
 typedef enum FastIOdiag
 {
     FAST_IO_SUCESS              =  0,
-    FAST_IO_MATH_ERROR          = -34 //ERANGE
+    FAST_IO_MATH_ERROR          = -ERANGE
 } FastIO_status_t;
 
 enum clockSources
@@ -110,16 +113,16 @@ enum domainId
 
 enum TWPS_bitField
 {
-    W_PEND_TCRL                 = (1u << 0u),
-    W_PEND_TCRR                 = (1u << 1u),
-    W_PEND_TLDR                 = (1u << 2u),
-    W_PEND_TTGR                 = (1u << 3u),
-    W_PEND_TMAR                 = (1u << 4u),
-    W_PEND_TPIR                 = (1u << 5u),
-    W_PEND_TNIR                 = (1u << 6u),
-    W_PEND_TCVR                 = (1u << 7u),
-    W_PEND_TOCR                 = (1u << 8u),
-    W_PEND_TOWR                 = (1u << 9u)
+    W_PEND_TCRL = (1u << 0u),
+    W_PEND_TCRR = (1u << 1u),
+    W_PEND_TLDR = (1u << 2u),
+    W_PEND_TTGR = (1u << 3u),
+    W_PEND_TMAR = (1u << 4u),
+    W_PEND_TPIR = (1u << 5u),
+    W_PEND_TNIR = (1u << 6u),
+    W_PEND_TCVR = (1u << 7u),
+    W_PEND_TOCR = (1u << 8u),
+    W_PEND_TOWR = (1u << 9u)
 };
 
 typedef struct timerInstance
