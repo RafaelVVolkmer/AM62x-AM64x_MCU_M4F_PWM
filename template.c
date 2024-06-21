@@ -89,7 +89,7 @@
 typedef enum FastIOdiag
 {
     FAST_IO_SUCESS              =  0,
-    FAST_IO_MATH_ERROR          = -ERANGE
+    FAST_IO_MATH_ERROR          = - (ERANGE)
 } FastIO_status_t;
 
 enum clockSources
