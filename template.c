@@ -38,16 +38,12 @@
 #define USR_TIMER_MATCH_INT_SHIFT   (uint8_t)(0x0U)
 #define PWM_TCLR_SCPWM_BIT_MSK      (uint8_t)(0x7U)
 
-#define TIMER_INPUT_CLOCK           (uint32_t)(25000000UL)
 #define TIM3_IRQ_PRIORITY           (uint8_t)(4U)
 
 #define MIN_DUTY                    (uint8_t)(0U)
 #define MAX_DUTY                    (uint8_t)(100U)
 #define MIN_FREQUENCY               (uint8_t)(0U)
 #define MAX_FREQUENCY               (uint32_t)(250000U)
-
-#define EXPECTED_TCLR               (uint32_t)(0x000018E2UL)
-#define TCLR_BIT_MASK               (uint32_t)(0x00000001U)
 
 #define MCU_TIM0_NVIC_IRQ_PEND      (uint8_t)(4U)
 #define MCU_TIM1_NVIC_IRQ_PEND      (uint8_t)(5U)
@@ -77,18 +73,16 @@
 #define TIM3_PRESCALER_VALUE        (uint8_t)(1U)
 #define TIM3_START_PERIOD           (uint8_t)(0U)
 
-enum setValue
-{
-    CLEAR                       = 0u,
-    SET                         = 1u
-};
+#define LOW_POLARITY                (uint8_t)(0U)
+#define HIGH_POLARITY               (uint8_t)(1U)
 
-enum enableRegister
-{
-    DISABLE                     = 0u,
-    ENABLE                      = 1u
-};
+#define CLEAR                       (uint8_t)(0U)
+#define SET                         (uint8_t)(1U)
 
+#define ENABLE                      (uint8_t)(0U)
+#define DISABLE                     (uint8_t)(1U)
+
+//User Enums
 typedef enum FastIOdiag
 {
     FAST_IO_SUCESS              =  0,
@@ -168,6 +162,8 @@ static inline void TIM_waitForWriteOnRegister(uint32_t timer_addr, uint32_t regi
 static inline uint32_t TIM_getWritingPendingRegister(uint32_t baseAddr);
 static FastIO_status_t FastIO_configSignal(TIM_config_t *timer_instance, uint32_t frequency, uint32_t duty_cycle);
 static void FastIO_setSignalRegisters(uint32_t timer_addr, uint32_t TCRR_value, uint32_t TLDR_value, uint32_t TMAR_value);
+static inline void FatIO_signalPolarity(uint32_t base_addr, bool set);
+
 
 TIM_config_t MCU_TIM3_instance = 
 {
@@ -179,22 +175,23 @@ TIM_config_t MCU_TIM3_instance =
 
     .baseParameters = 
     {
-        .inpult_clk             = TIM3_INPUT_CLOCK,
-        .input_prescaler        = TIM3_PRESCALER_VALUE,
-        .period_ns           = TIM3_START_PERIOD,
-        .en_oenshot_mode        = DISABLE,
-        .en_overflow_irq        = ENABLE,
-        .en_dma_trigger         = DISABLE
+            .inpult_clk             = TIM3_INPUT_CLOCK,
+            .input_prescaler        = TIM3_PRESCALER_VALUE,
+            .period_ns              = TIM3_START_PERIOD,
+            .en_oenshot_mode        = DISABLE,
+            .en_overflow_irq        = ENABLE,
+            .en_dma_trigger         = DISABLE
     },
         
     .irqParameters = 
     {
-        .irq_number             = (MCU_IRQ_VECTOR_OFFSET + MCU_TIM3_NVIC_IRQ_PEND),
-        .callback_function      = TimerP_isr0,
-        .is_pulse               = DISABLE,
-        .irq_priority           = TIM3_IRQ_PRIORITY
+            .irq_number             = (MCU_IRQ_VECTOR_OFFSET + MCU_TIM3_NVIC_IRQ_PEND),
+            .callback_function      = TimerP_isr0,
+            .is_pulse               = DISABLE,
+            .irq_priority           = TIM3_IRQ_PRIORITY
     }
 };
+
 
 void TimerP_isr0(void *args)
 {
@@ -220,7 +217,6 @@ void TimerP_isr0(void *args)
 /* Main Function */
 int main(void)
 {
-
     /* System Init */
     System_init();
     Board_init();
@@ -233,9 +229,9 @@ int main(void)
     MCU_TIM3_instance.RAT_clksel_addr    = (uint32_t)AddrTranslateP_getLocalAddr(MCU_TIM3_instance.clksel_addr);
 
     /* User Code */
-    FastIO_configTimer(&MCU_TIM3_instance);
     MCU_TIM3_pinmux();
 
+    FastIO_configTimer(&MCU_TIM3_instance);
 
     FastIO_timerControl(MCU_TIM3_instance.RAT_base_addr);
 
@@ -248,8 +244,6 @@ int main(void)
     {
 
     }
-
-    DebugP_log("Hello World!\r\n");
 
     /* System Denit */
     Board_driversClose();
@@ -331,21 +325,6 @@ static FastIO_status_t FastIO_timerControl(uint32_t timer_addr)
     return status_out;
 }
 
-static inline void TIM_waitForWriteOnRegister(uint32_t timer_addr, uint32_t register_bit)
-{
-    if ( HW_RD_FIELD32(timer_addr + USR_TIMER_TSICR, TIMER_TSICR_POSTED) != FALSE )
-    {
-        while( (TIM_getWritingPendingRegister(timer_addr) & register_bit) != FALSE )
-        {
-            /* Do nothing - Busy wait */
-        }
-    }
-}
-
-static inline uint32_t TIM_getWritingPendingRegister(uint32_t timer_addr)
-{
-    return ( HW_RD_REG32(timer_addr + USR_TIMER_TWPS) );
-}
 
 static FastIO_status_t FastIO_configSignal(TIM_config_t *timer_instance, uint32_t frequency, uint32_t duty_cycle)
 {
@@ -356,78 +335,49 @@ static FastIO_status_t FastIO_configSignal(TIM_config_t *timer_instance, uint32_
     volatile uint64_t absolute_clk           = CLEAR;
     volatile uint64_t duty_ticks             = CLEAR;
 
-    volatile uint32_t TCLR_value             = CLEAR;
-
     volatile uint32_t TCRR_value             = CLEAR;
     volatile uint32_t TLDR_value             = CLEAR;
     volatile uint32_t TMAR_value             = CLEAR;
 
-    volatile uint32_t save_duty              = CLEAR;
-    volatile uint32_t break_index            = CLEAR;
-
-    save_duty = duty_cycle;
-    duty_cycle = 0;
-
-    //se for 100% PWM inverterá, pois a proxima chamada, se não for 0, começara em 1. Deve-se zerar SCPWM.
-    while( break_index != 2 )
+    switch(duty_cycle)
     {
-        switch(duty_cycle)
-        {
-            case 0:
+        case 0:
 
-                duty_cycle = save_duty;
+            TimerP_stop(timer_instance->RAT_base_addr);
 
-                if(break_index == 1)
-                {
-                    TimerP_stop(timer_instance->RAT_base_addr);
-                }
-
-                break_index++;
-
-                TCLR_value = CSL_REG32_RD(timer_instance->RAT_base_addr + USR_TIMER_TCLR);
-                TCLR_value &=~ ( 1u << PWM_TCLR_SCPWM_BIT_MSK );
-
-                CSL_REG32_WR((timer_instance->RAT_base_addr + USR_TIMER_TCLR), TCLR_value);
-                TIM_waitForWriteOnRegister(timer_instance->RAT_base_addr, W_PEND_TCRL);
+            FatIO_signalPolarity(timer_instance->RAT_base_addr, LOW_POLARITY);
 
                 break;
 
-            case 100:
+        case 100:
 
-                TimerP_stop(timer_instance->RAT_base_addr);
+            TimerP_stop(timer_instance->RAT_base_addr);
 
-                break_index++;
-
-                TCLR_value = CSL_REG32_RD(timer_instance->RAT_base_addr + USR_TIMER_TCLR);
-                TCLR_value |= ( 1u << PWM_TCLR_SCPWM_BIT_MSK );
-
-                CSL_REG32_WR((timer_instance->RAT_base_addr + USR_TIMER_TCLR), TCLR_value);
-                TIM_waitForWriteOnRegister(timer_instance->RAT_base_addr, W_PEND_TCRL);
+            FatIO_signalPolarity(timer_instance->RAT_base_addr, HIGH_POLARITY);
 
                 break;
 
-            default:
+        default:
 
-                break_index++;
+            period_in_ns    =( ( NS_SCALE / frequency ) / 2 );
 
-                period_in_ns    =( ( NS_SCALE / frequency ) / 2 );
+            absolute_clk    = ( 
+                                timer_instance->baseParameters.inpult_clk 
+                                                    / 
+                                timer_instance->baseParameters.input_prescaler 
+                              );
 
-                absolute_clk    = ( 
-                                    timer_instance->baseParameters.inpult_clk 
-                                                        / 
-                                    timer_instance->baseParameters.input_prescaler 
-                                  );
+            counter_ticks   = ( ( absolute_clk * period_in_ns ) / NS_SCALE );
 
-                counter_ticks   = ( ( absolute_clk * period_in_ns ) / NS_SCALE );
+            duty_ticks      = ( counter_ticks - ( ( counter_ticks * duty_cycle ) / PERCENT_SCALE ) );
 
-                duty_ticks      = ( counter_ticks - ( ( counter_ticks * duty_cycle ) / PERCENT_SCALE ) );
+            TCRR_value      = ( OVERFLOW_VALUE - counter_ticks - PERIOD_OFFSET );
+            TLDR_value      = ( TCRR_value );
+            TMAR_value      = ( OVERFLOW_VALUE - duty_ticks - PERIOD_OFFSET );
 
-                TCRR_value      = ( OVERFLOW_VALUE - counter_ticks - PERIOD_OFFSET );
-                TLDR_value      = ( TCRR_value );
-                TMAR_value      = ( OVERFLOW_VALUE - duty_ticks - PERIOD_OFFSET );
+            FatIO_signalPolarity(timer_instance->RAT_base_addr, LOW_POLARITY);
 
                 break;
-        }
     }
 
     if (TCRR_value >= MAX_COUNT_VALUE || TLDR_value >= MAX_COUNT_VALUE || TMAR_value >= MAX_COUNT_VALUE)
@@ -446,8 +396,39 @@ static FastIO_status_t FastIO_configSignal(TIM_config_t *timer_instance, uint32_
     return status_out;
 }
 
+static inline void TIM_waitForWriteOnRegister(uint32_t timer_addr, uint32_t register_bit)
+{
+    if ( HW_RD_FIELD32(timer_addr + USR_TIMER_TSICR, TIMER_TSICR_POSTED) != FALSE )
+    {
+        while( (TIM_getWritingPendingRegister(timer_addr) & register_bit) != FALSE )
+        {
+            /* Do nothing - Busy wait */
+        }
+    }
+}
+
+static inline uint32_t TIM_getWritingPendingRegister(uint32_t timer_addr)
+{
+    return ( HW_RD_REG32(timer_addr + USR_TIMER_TWPS) );
+}
+
+static inline void FatIO_signalPolarity(uint32_t base_addr, bool set)
+{
+    uint32_t TCLR_value = CSL_REG32_RD(base_addr + USR_TIMER_TCLR);
+
+    TCLR_value = set ? 
+    (TCLR_value |  (1u << PWM_TCLR_SCPWM_BIT_MSK)) : 
+    (TCLR_value & ~(1u << PWM_TCLR_SCPWM_BIT_MSK));
+
+    CSL_REG32_WR(base_addr + USR_TIMER_TCLR, TCLR_value);
+    TIM_waitForWriteOnRegister(base_addr, W_PEND_TCRL);
+}
+
 static void FastIO_setSignalRegisters(uint32_t timer_addr, uint32_t TCRR_value, uint32_t TLDR_value, uint32_t TMAR_value)
 {
+    
+    TimerP_stop(timer_addr);
+
     /* 
     *   - SET (TCRR) REGISTER -
     * 
