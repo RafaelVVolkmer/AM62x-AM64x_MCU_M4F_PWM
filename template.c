@@ -280,8 +280,10 @@ static void FastIO_configTimer(TIM_config_t *timer_instance)
     HwiP_Object gtimerHwiObject;
     TimerP_Params timerParams;
 
+    //Be able to acess direct memory using physyical address reference
     SOC_controlModuleUnlockMMR(MCU_SOC_DOMAIN_ID, SOC_PARTITION);
     *(volatile uint32_t*)timer_instance->RAT_clksel_addr = HFOSC0_CLKOUT;
+    //Not able to acess direct memory using physyical address reference
     SOC_controlModuleLockMMR(MCU_SOC_DOMAIN_ID, SOC_PARTITION);
 
     TimerP_Params_init(&timerParams);
