@@ -1,25 +1,8 @@
 /* User Includes */
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <errno.h>
-
-#define MAIN_TIMER0_ADRR    (uint32_t)(0x02400000UL)
-#define MAIN_TIMER1_ADRR    (uint32_t)(0x02410000UL)
-#define MAIN_TIMER2_ADRR    (uint32_t)(0x02420000UL)
-#define MAIN_TIMER3_ADRR    (uint32_t)(0x02430000UL)
-#define MAIN_TIMER4_ADRR    (uint32_t)(0x02440000UL)
-#define MAIN_TIMER5_ADRR    (uint32_t)(0x02450000UL)
-#define MAIN_TIMER5_ADRR    (uint32_t)(0x02450000UL)
-#define MAIN_TIMER6_ADRR    (uint32_t)(0x02460000UL)
-#define MAIN_TIMER7_ADRR    (uint32_t)(0x02470000UL)
-
-#define MCU_TIMER0_ADRR     (uint32_t)(0x04800000UL)
-#define MCU_TIMER1_ADRR     (uint32_t)(0x04810000UL)
-#define MCU_TIMER2_ADRR     (uint32_t)(0x04820000UL)
-#define MCU_TIMER3_ADRR     (uint32_t)(0x04830000UL)
-
-#define WKUP_TIMER0_ADRR    (uint32_t)(0x2B100000UL)
-#define WKUP_TIMER1_ADRR    (uint32_t)(0x2B110000UL)
 
 typedef struct
 {
@@ -306,7 +289,44 @@ typedef struct
 
 } __attribute__ ((packed)) timer_t;
 
-volatile timer_t *MCU_TIM0 = (volatile timer_t *)(0x84800000UL);
-volatile timer_t *MCU_TIM1 = (volatile timer_t *)(0x84810000UL);
-volatile timer_t *MCU_TIM2 = (volatile timer_t *)(0x84820000UL);
-volatile timer_t *MCU_TIM3 = (volatile timer_t *)(0x84830000UL);
+volatile timer_t MCU_TIM3 __attribute__((section(".MCU_TIM3")));
+
+typedef struct timerInstance
+{
+    uint32_t base_addr;
+    uint32_t clksel_addr;
+
+    uint32_t RAT_base_addr;
+    uint32_t RAT_clksel_addr;
+
+    struct
+    {
+        uint32_t inpult_clk;
+        uint32_t input_prescaler;
+        uint32_t period_ns;
+        uint32_t en_oenshot_mode;
+        uint32_t en_overflow_irq;
+        uint32_t en_dma_trigger;
+    } baseParameters;
+
+    struct
+    {
+        uint32_t irq_number;
+        void (*callback_function)(void* args);
+        uint32_t is_pulse;
+        uint32_t irq_priority;
+    } irqParameters;
+
+} TIM_config_t;
+
+/* Main Function */
+int main(void)
+{
+
+    while(1)
+    {
+
+    }
+
+    return 0;
+}
